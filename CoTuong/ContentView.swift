@@ -9,8 +9,11 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var gameBoard = GameBoard()
+    @StateObject private var gameConnection = GameConnection()
     @State private var selectedPiece: Piece?
     @State private var possibleMoves: [Position] = []
+    @State private var showingConnectionSheet = false
+    @State private var playerColor: PieceColor = .red
     
     var body: some View {
         VStack {
@@ -18,13 +21,54 @@ struct ContentView: View {
                 .font(.title)
                 .padding()
             
-            Text("\(gameBoard.currentPlayer == .red ? "Red" : "Black")'s Turn")
-                .font(.headline)
-                .foregroundColor(gameBoard.currentPlayer == .red ? .red : .black)
-                .padding(.bottom)
+            if gameConnection.state == .notConnected {
+                HStack {
+                    Button("Host Game") {
+                        gameConnection.startHosting()
+                        playerColor = .red
+                        showingConnectionSheet = true
+                    }
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    
+                    Button("Join Game") {
+                        gameConnection.startBrowsing()
+                        playerColor = .black
+                        showingConnectionSheet = true
+                    }
+                    .padding()
+                    .background(Color.green)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                }
+            } else {
+                if gameConnection.state == .connected {
+                    Text("Playing as \(playerColor == .red ? "Red" : "Black")")
+                        .font(.headline)
+                        .padding(.bottom)
+                } else {
+                    Text("Connecting...")
+                        .font(.headline)
+                        .padding(.bottom)
+                }
+            }
             
-            if gameBoard.isCheck {
-                Text(gameBoard.isCheckmate ? "Checkmate!" : "Check!")
+            if gameBoard.isCheckmate {
+                Text("\(gameBoard.currentPlayer == .red ? "Black" : "Red") Wins!")
+                    .font(.title2)
+                    .foregroundColor(gameBoard.currentPlayer == .red ? .black : .red)
+                    .padding(.bottom)
+            } else {
+                Text("\(gameBoard.currentPlayer == .red ? "Red" : "Black")'s Turn")
+                    .font(.headline)
+                    .foregroundColor(gameBoard.currentPlayer == .red ? .red : .black)
+                    .padding(.bottom)
+            }
+            
+            if gameBoard.isCheck && !gameBoard.isCheckmate {
+                Text("Check!")
                     .font(.headline)
                     .foregroundColor(.red)
                     .padding(.bottom)
@@ -92,25 +136,60 @@ struct ContentView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onEnded { value in
-                        handleBoardTap(at: value.location)
+                        if !gameBoard.isCheckmate && canMakeMove() {
+                            handleBoardTap(at: value.location)
+                        }
                     }
             )
             
-            Button(action: {
-                gameBoard.pieces.removeAll()
-                gameBoard.setupInitialBoard()
-                gameBoard.currentPlayer = .red
-                selectedPiece = nil
-                possibleMoves = []
-            }) {
-                Text("Reset Game")
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(Color.blue)
-                    .cornerRadius(8)
+            if gameConnection.state == .connected {
+                Button("Disconnect") {
+                    gameConnection.stopConnection()
+                    resetGame()
+                }
+                .padding()
+                .background(Color.red)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            } else {
+                Button(action: resetGame) {
+                    Text(gameBoard.isCheckmate ? "New Game" : "Reset Game")
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(gameBoard.isCheckmate ? Color.green : Color.blue)
+                        .cornerRadius(8)
+                }
             }
-            .padding()
         }
+        .sheet(isPresented: $showingConnectionSheet) {
+            ConnectionView(gameConnection: gameConnection)
+        }
+        .alert("Game Invitation", isPresented: $gameConnection.receivedInvite) {
+            Button("Accept") {
+                gameConnection.acceptInvitation(accept: true)
+            }
+            Button("Decline") {
+                gameConnection.acceptInvitation(accept: false)
+            }
+        } message: {
+            Text("Would you like to join this game?")
+        }
+        .onAppear {
+            setupGameConnection()
+        }
+    }
+    
+    private func setupGameConnection() {
+        gameConnection.onMoveMade = { from, to in
+            gameBoard.movePiece(from: from, to: to)
+        }
+    }
+    
+    private func canMakeMove() -> Bool {
+        if gameConnection.state == .connected {
+            return gameBoard.currentPlayer == playerColor
+        }
+        return true
     }
     
     private func handleBoardTap(at location: CGPoint) {
@@ -133,8 +212,7 @@ struct ContentView: View {
                 if possibleMoves.contains(position) {
                     // Ensure we're using the exact selected piece for the move
                     if let piece = gameBoard.pieces.first(where: { $0.id == selected.id }) {
-                        print("Moving piece with ID: \(piece.id) from \(piece.position) to \(position)")
-                        gameBoard.movePiece(from: piece.position, to: position)
+                        makeMove(from: piece.position, to: position)
                     }
                     selectedPiece = nil
                     possibleMoves = []
@@ -143,7 +221,6 @@ struct ContentView: View {
                     if let piece = gameBoard.pieceAt(position: position),
                        piece.color == gameBoard.currentPlayer {
                         selectedPiece = piece
-                        print("Selected piece with ID: \(piece.id) at \(piece.position)")
                         possibleMoves = calculatePossibleMoves(for: piece)
                     } else {
                         selectedPiece = nil
@@ -155,7 +232,6 @@ struct ContentView: View {
                 if let piece = gameBoard.pieceAt(position: position),
                    piece.color == gameBoard.currentPlayer {
                     selectedPiece = piece
-                    print("Selected piece with ID: \(piece.id) at \(piece.position)")
                     possibleMoves = calculatePossibleMoves(for: piece)
                 }
             }
@@ -163,26 +239,20 @@ struct ContentView: View {
     }
     
     private func handlePieceTap(_ piece: Piece) {
-        print("\nPIECE TAP:")
-        print("- Tapped piece: \(piece.color) \(piece.type) [ID: \(piece.id)]")
+        guard !gameBoard.isCheckmate && canMakeMove() else { return }
         
         if piece.color == gameBoard.currentPlayer {
             if let selected = selectedPiece {
                 if piece.id == selected.id {
-                    print("- Deselecting piece")
                     selectedPiece = nil
                     possibleMoves = []
                 } else {
-                    print("- Selecting new piece: \(piece.color) \(piece.type) [ID: \(piece.id)]")
-                    // Ensure we're using the exact piece from the game board
                     if let exactPiece = gameBoard.pieces.first(where: { $0.id == piece.id }) {
                         selectedPiece = exactPiece
                         possibleMoves = calculatePossibleMoves(for: exactPiece)
                     }
                 }
             } else {
-                print("- Selecting piece: \(piece.color) \(piece.type) [ID: \(piece.id)]")
-                // Ensure we're using the exact piece from the game board
                 if let exactPiece = gameBoard.pieces.first(where: { $0.id == piece.id }) {
                     selectedPiece = exactPiece
                     possibleMoves = calculatePossibleMoves(for: exactPiece)
@@ -190,13 +260,8 @@ struct ContentView: View {
             }
         } else if let selected = selectedPiece,
                   possibleMoves.contains(piece.position) {
-            print("- Attempting capture:")
-            print("  * Using: \(selected.color) \(selected.type) [ID: \(selected.id)]")
-            print("  * Target: \(piece.color) \(piece.type) [ID: \(piece.id)]")
-            
-            // Ensure we're using the exact selected piece for the move
             if let exactPiece = gameBoard.pieces.first(where: { $0.id == selected.id }) {
-                gameBoard.movePiece(from: exactPiece.position, to: piece.position)
+                makeMove(from: exactPiece.position, to: piece.position)
             }
             selectedPiece = nil
             possibleMoves = []
@@ -215,6 +280,23 @@ struct ContentView: View {
             }
         }
         return moves
+    }
+    
+    private func makeMove(from: Position, to: Position) {
+        gameBoard.movePiece(from: from, to: to)
+        if gameConnection.state == .connected {
+            gameConnection.sendMove(from: from, to: to)
+        }
+    }
+    
+    private func resetGame() {
+        gameBoard.pieces.removeAll()
+        gameBoard.setupInitialBoard()
+        gameBoard.currentPlayer = .red
+        gameBoard.isCheck = false
+        gameBoard.isCheckmate = false
+        selectedPiece = nil
+        possibleMoves = []
     }
 }
 
@@ -314,6 +396,54 @@ struct PieceView: View {
         case .cannon: return "砲"
         case .soldier: return piece.color == .red ? "兵" : "卒"
         }
+    }
+}
+
+struct ConnectionView: View {
+    @ObservedObject var gameConnection: GameConnection
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        VStack {
+            if gameConnection.state == .connected {
+                Text("Connected!")
+                    .font(.title)
+                    .padding()
+                Button("Start Playing") {
+                    dismiss()
+                }
+                .padding()
+                .background(Color.green)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            } else {
+                if gameConnection.isHost {
+                    Text("Waiting for players to join...")
+                        .font(.headline)
+                        .padding()
+                } else {
+                    Text("Available Games")
+                        .font(.headline)
+                        .padding()
+                    
+                    List(gameConnection.availablePeers, id: \.self) { peer in
+                        Button(peer.displayName) {
+                            gameConnection.connectTo(peer: peer)
+                        }
+                    }
+                }
+                
+                Button("Cancel") {
+                    gameConnection.stopConnection()
+                    dismiss()
+                }
+                .padding()
+                .background(Color.red)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+        }
+        .padding()
     }
 }
 

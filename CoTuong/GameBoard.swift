@@ -253,53 +253,28 @@ class GameBoard: ObservableObject {
     
     func movePiece(from: Position, to: Position) {
         // First verify that there is a piece at the 'from' position and it belongs to current player
-        guard let movingPiece = pieceAt(position: from) else {
-            print("ERROR: No piece at position \(from)")
-            return
-        }
-        
-        print("\nMOVE START:")
-        print("Moving piece: \(movingPiece.color) \(movingPiece.type) [ID: \(movingPiece.id)]")
-        print("From: \(from) To: \(to)")
+        guard let movingPiece = pieceAt(position: from) else { return }
         
         // Verify it's the current player's piece
-        guard movingPiece.color == currentPlayer else {
-            print("ERROR: Wrong player's piece")
-            return
-        }
+        guard movingPiece.color == currentPlayer else { return }
         
         // Verify the move is valid
-        guard isValidMove(from: from, to: to) else {
-            print("ERROR: Invalid move")
-            return
-        }
+        guard isValidMove(from: from, to: to) else { return }
         
         // Find the exact moving piece by ID
-        guard let fromIndex = pieces.firstIndex(where: { $0.id == movingPiece.id }) else {
-            print("ERROR: Moving piece not found in array")
-            return
-        }
+        guard let fromIndex = pieces.firstIndex(where: { $0.id == movingPiece.id }) else { return }
         
         // Check for capture
         if let capturedPiece = pieceAt(position: to) {
-            print("\nCAPTURE DETAILS:")
-            print("Capturing: \(capturedPiece.color) \(capturedPiece.type) [ID: \(capturedPiece.id)]")
-            print("Using: \(movingPiece.color) \(movingPiece.type) [ID: \(movingPiece.id)]")
-            
             // Find and remove the captured piece by ID
             if let captureIndex = pieces.firstIndex(where: { $0.id == capturedPiece.id }) {
-                print("Removing captured piece at index: \(captureIndex)")
                 pieces.remove(at: captureIndex)
                 
                 // If the captured piece was before our moving piece in the array,
                 // we need to adjust the index of our moving piece
                 if captureIndex < fromIndex {
-                    print("Adjusting moving piece index due to capture")
                     // Find the new index of our moving piece after the capture
-                    guard let newFromIndex = pieces.firstIndex(where: { $0.id == movingPiece.id }) else {
-                        print("ERROR: Lost track of moving piece after capture")
-                        return
-                    }
+                    guard let newFromIndex = pieces.firstIndex(where: { $0.id == movingPiece.id }) else { return }
                     // Update the moving piece's position
                     pieces[newFromIndex].position = to
                     pieces[newFromIndex].hasMoved = true
@@ -308,9 +283,6 @@ class GameBoard: ObservableObject {
                     pieces[fromIndex].position = to
                     pieces[fromIndex].hasMoved = true
                 }
-            } else {
-                print("ERROR: Could not find captured piece in array")
-                return
             }
         } else {
             // No capture, just move the piece
@@ -318,14 +290,17 @@ class GameBoard: ObservableObject {
             pieces[fromIndex].hasMoved = true
         }
         
-        print("\nAFTER MOVE - Pieces at destination:")
-        if let pieceAtDest = pieceAt(position: to) {
-            print("\(pieceAtDest.color) \(pieceAtDest.type) [ID: \(pieceAtDest.id)]")
-        }
-        
         // Switch turns
         currentPlayer = currentPlayer == .red ? .black : .red
-        print("\nTurn changed to \(currentPlayer)")
+        
+        // Check for check and checkmate
+        let opponentColor = currentPlayer // Since we already switched turns
+        isCheck = isInCheck(color: opponentColor)
+        if isCheck {
+            isCheckmate = isInCheckmate(color: opponentColor)
+        } else {
+            isCheckmate = false
+        }
     }
     
     private func isInCheck(color: PieceColor) -> Bool {
@@ -345,6 +320,11 @@ class GameBoard: ObservableObject {
     }
     
     private func isInCheckmate(color: PieceColor) -> Bool {
+        // If not in check, can't be in checkmate
+        if !isInCheck(color: color) {
+            return false
+        }
+        
         // Get all pieces of the current player
         let playerPieces = pieces.filter { $0.color == color }
         
