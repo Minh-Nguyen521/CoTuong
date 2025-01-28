@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var possibleMoves: [Position] = []
     @State private var showingConnectionSheet = false
     @State private var playerColor: PieceColor = .red
+    @State private var activeCannonShot: (from: Position, to: Position)? = nil
     
     var body: some View {
         VStack {
@@ -116,9 +117,16 @@ struct ContentView: View {
                     let offsetY = cellHeight / 2
                     
                     ForEach(gameBoard.pieces) { piece in
+                        let isBeingCaptured = selectedPiece != nil && 
+                                             possibleMoves.contains(piece.position) && 
+                                             piece.color != selectedPiece?.color
+                        
                         PieceView(
                             piece: piece,
-                            isSelected: selectedPiece?.id == piece.id
+                            isSelected: selectedPiece?.id == piece.id,
+                            isBeingCaptured: isBeingCaptured,
+                            cellWidth: cellWidth,
+                            cellHeight: cellHeight
                         )
                         .position(
                             x: CGFloat(piece.position.x) * cellWidth + offsetX,
@@ -127,6 +135,13 @@ struct ContentView: View {
                         .onTapGesture {
                             handlePieceTap(piece)
                         }
+                    }
+                }
+                
+                // Cannon shot animation
+                if let shot = activeCannonShot {
+                    GeometryReader { geometry in
+                        createCannonShot(from: shot.from, to: shot.to, in: geometry)
                     }
                 }
             }
@@ -242,6 +257,19 @@ struct ContentView: View {
         guard !gameBoard.isCheckmate && canMakeMove() else { return }
         
         if piece.color == gameBoard.currentPlayer {
+            // If selecting a new piece, reset any pieces that were about to be captured
+            if selectedPiece != nil {
+                // Reset capture states for all pieces
+                for p in gameBoard.pieces {
+                    if possibleMoves.contains(p.position) && p.color != selectedPiece?.color {
+                        // This piece was about to be captured, reset its state
+                        if let index = gameBoard.pieces.firstIndex(where: { $0.id == p.id }) {
+                            gameBoard.pieces[index].position = p.position
+                        }
+                    }
+                }
+            }
+            
             if let selected = selectedPiece {
                 if piece.id == selected.id {
                     selectedPiece = nil
@@ -282,10 +310,62 @@ struct ContentView: View {
         return moves
     }
     
+    private func createCannonShot(from: Position, to: Position, in geometry: GeometryProxy) -> some View {
+        let cellWidth = geometry.size.width / 9
+        let cellHeight = geometry.size.height / 10
+        let offsetX = cellWidth / 2
+        let offsetY = cellHeight / 2
+        
+        return CannonShotView(
+            start: CGPoint(
+                x: CGFloat(from.x) * cellWidth + offsetX,
+                y: CGFloat(from.y) * cellHeight + offsetY
+            ),
+            end: CGPoint(
+                x: CGFloat(to.x) * cellWidth + offsetX,
+                y: CGFloat(to.y) * cellHeight + offsetY
+            )
+        )
+    }
+    
     private func makeMove(from: Position, to: Position) {
-        gameBoard.movePiece(from: from, to: to)
-        if gameConnection.state == .connected {
-            gameConnection.sendMove(from: from, to: to)
+        if gameBoard.isValidMove(from: from, to: to) {
+            if let capturedPiece = gameBoard.pieceAt(position: to),
+               let movingPiece = gameBoard.pieceAt(position: from),
+               movingPiece.type == .cannon {
+                
+                // Set the active cannon shot
+                activeCannonShot = (from: from, to: to)
+                
+                // After the shot animation, perform the capture
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    gameBoard.movePiece(from: from, to: to)
+                    if gameConnection.state == .connected {
+                        gameConnection.sendMove(from: from, to: to)
+                    }
+                    // Clear the cannon shot
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        activeCannonShot = nil
+                    }
+                }
+            } else if gameBoard.pieceAt(position: to) != nil {
+                // Normal capture animation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    gameBoard.movePiece(from: from, to: to)
+                    if gameConnection.state == .connected {
+                        gameConnection.sendMove(from: from, to: to)
+                    }
+                }
+            } else {
+                // No capture, just move normally
+                gameBoard.movePiece(from: from, to: to)
+                if gameConnection.state == .connected {
+                    gameConnection.sendMove(from: from, to: to)
+                }
+            }
+        } else {
+            selectedPiece = nil
+            possibleMoves = []
         }
     }
     
@@ -352,9 +432,51 @@ struct BoardGrid: View {
     }
 }
 
+struct CannonShotView: View {
+    let start: CGPoint
+    let end: CGPoint
+    @State private var progress: CGFloat = 0
+    @State private var showSmoke = false
+    
+    var body: some View {
+        ZStack {
+            // Smoke effect at the start position
+            if showSmoke {
+                Circle()
+                    .fill(Color.gray.opacity(0.5))
+                    .frame(width: 20, height: 20)
+                    .position(start)
+                    .scaleEffect(progress)
+                    .opacity(1 - progress)
+            }
+            
+            // Cannon ball
+            Circle()
+                .fill(Color.black)
+                .frame(width: 12, height: 12)
+                .position(
+                    x: start.x + (end.x - start.x) * progress,
+                    y: start.y + (end.y - start.y) * progress
+                )
+                .opacity(progress < 1 ? 1 : 0)
+        }
+        .onAppear {
+            showSmoke = true
+            withAnimation(.easeOut(duration: 0.3)) {
+                progress = 1
+            }
+        }
+    }
+}
+
 struct PieceView: View {
     let piece: Piece
     let isSelected: Bool
+    let isBeingCaptured: Bool
+    @State private var isCaptured = false
+    @State private var offset = CGSize.zero
+    let cellWidth: CGFloat
+    let cellHeight: CGFloat
     
     var body: some View {
         ZStack {
@@ -384,6 +506,22 @@ struct PieceView: View {
                 .fill(isSelected ? Color.yellow.opacity(0.3) : Color.clear)
                 .frame(width: 44, height: 44)
         )
+        .offset(offset)
+        .scaleEffect(isCaptured ? 0.5 : 1)
+        .opacity(isCaptured ? 0 : 1)
+        .animation(.easeInOut(duration: 0.3), value: isCaptured)
+        .animation(.easeInOut(duration: 0.3), value: offset)
+        .onChange(of: isBeingCaptured) { newValue in
+            if newValue {
+                isCaptured = true
+            } else {
+                isCaptured = false
+            }
+        }
+        .onChange(of: piece.position) { _ in
+            isCaptured = false
+            offset = .zero
+        }
     }
     
     private func pieceSymbol(for piece: Piece) -> String {
