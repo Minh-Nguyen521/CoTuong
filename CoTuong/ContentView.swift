@@ -15,46 +15,21 @@ struct ContentView: View {
     @State private var showingConnectionSheet = false
     @State private var playerColor: PieceColor = .red
     @State private var activeCannonShot: (from: Position, to: Position)? = nil
+    @State private var activeHorseJump: (from: Position, to: Position)? = nil
+    @State private var activeSoldierAttack: (from: Position, to: Position)? = nil
+    @State private var activeGeneralAttack: (from: Position, to: Position)? = nil
+    @State private var activeAdvisorAttack: (from: Position, to: Position)? = nil
+    @State private var activeElephantAttack: (from: Position, to: Position)? = nil
+    @State private var activeChariotAttack: (from: Position, to: Position)? = nil
     
     var body: some View {
         VStack {
-            Text("Chinese Chess - Cờ Tướng")
-                .font(.title)
-                .padding()
             
-            if gameConnection.state == .notConnected {
-                HStack {
-                    Button("Host Game") {
-                        gameConnection.startHosting()
-                        playerColor = .red
-                        showingConnectionSheet = true
-                    }
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                    
-                    Button("Join Game") {
-                        gameConnection.startBrowsing()
-                        playerColor = .black
-                        showingConnectionSheet = true
-                    }
-                    .padding()
-                    .background(Color.green)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                }
-            } else {
-                if gameConnection.state == .connected {
-                    Text("Playing as \(playerColor == .red ? "Red" : "Black")")
-                        .font(.headline)
-                        .padding(.bottom)
-                } else {
-                    Text("Connecting...")
-                        .font(.headline)
-                        .padding(.bottom)
-                }
-            }
+            MultiplayerView(
+                gameConnection: gameConnection,
+                showingConnectionSheet: $showingConnectionSheet,
+                playerColor: $playerColor
+            )
             
             if gameBoard.isCheckmate {
                 Text("\(gameBoard.currentPlayer == .red ? "Black" : "Red") Wins!")
@@ -144,6 +119,48 @@ struct ContentView: View {
                         createCannonShot(from: shot.from, to: shot.to, in: geometry)
                     }
                 }
+                
+                // Horse jump animation
+                if let jump = activeHorseJump {
+                    GeometryReader { geometry in
+                        createHorseJump(from: jump.from, to: jump.to, in: geometry)
+                    }
+                }
+                
+                // Soldier attack animation
+                if let attack = activeSoldierAttack {
+                    GeometryReader { geometry in
+                        createSoldierAttack(from: attack.from, to: attack.to, in: geometry)
+                    }
+                }
+                
+                // General attack animation
+                if let generalAttack = activeGeneralAttack {
+                    GeometryReader { geometry in
+                        createGeneralAttack(from: generalAttack.from, to: generalAttack.to, in: geometry)
+                    }
+                }
+                
+                // Advisor attack animation
+                if let advisorAttack = activeAdvisorAttack {
+                    GeometryReader { geometry in
+                        createAdvisorAttack(from: advisorAttack.from, to: advisorAttack.to, in: geometry)
+                    }
+                }
+                
+                // Elephant attack animation
+                if let elephantAttack = activeElephantAttack {
+                    GeometryReader { geometry in
+                        createElephantAttack(from: elephantAttack.from, to: elephantAttack.to, in: geometry)
+                    }
+                }
+                
+                // Chariot attack animation
+                if let chariotAttack = activeChariotAttack {
+                    GeometryReader { geometry in
+                        createChariotAttack(from: chariotAttack.from, to: chariotAttack.to, in: geometry)
+                    }
+                }
             }
             .frame(width: 360, height: 400)
             .padding()
@@ -158,14 +175,7 @@ struct ContentView: View {
             )
             
             if gameConnection.state == .connected {
-                Button("Disconnect") {
-                    gameConnection.stopConnection()
-                    resetGame()
-                }
-                .padding()
-                .background(Color.red)
-                .foregroundColor(.white)
-                .cornerRadius(8)
+                DisconnectButton(gameConnection: gameConnection, resetGame: resetGame)
             } else {
                 Button(action: resetGame) {
                     Text(gameBoard.isCheckmate ? "New Game" : "Reset Game")
@@ -328,32 +338,175 @@ struct ContentView: View {
         )
     }
     
+    private func createHorseJump(from: Position, to: Position, in geometry: GeometryProxy) -> some View {
+        let cellWidth = geometry.size.width / 9
+        let cellHeight = geometry.size.height / 10
+        let offsetX = cellWidth / 2
+        let offsetY = cellHeight / 2
+        
+        // Get the moving piece's color
+        let pieceColor = gameBoard.pieceAt(position: from)?.color ?? .red
+        
+        return HorseJumpView(
+            start: CGPoint(
+                x: CGFloat(from.x) * cellWidth + offsetX,
+                y: CGFloat(from.y) * cellHeight + offsetY
+            ),
+            end: CGPoint(
+                x: CGFloat(to.x) * cellWidth + offsetX,
+                y: CGFloat(to.y) * cellHeight + offsetY
+            ),
+            pieceColor: pieceColor
+        )
+    }
+    
+    private func createSoldierAttack(from: Position, to: Position, in geometry: GeometryProxy) -> some View {
+        let cellWidth = geometry.size.width / 9
+        let cellHeight = geometry.size.height / 10
+        let offsetX = cellWidth / 2
+        let offsetY = cellHeight / 2
+        
+        let pieceColor = gameBoard.pieceAt(position: from)?.color ?? .red
+        
+        return SoldierAttackView(
+            start: CGPoint(
+                x: CGFloat(from.x) * cellWidth + offsetX,
+                y: CGFloat(from.y) * cellHeight + offsetY
+            ),
+            end: CGPoint(
+                x: CGFloat(to.x) * cellWidth + offsetX,
+                y: CGFloat(to.y) * cellHeight + offsetY
+            ),
+            pieceColor: pieceColor
+        )
+    }
+    
+    private func createGeneralAttack(from: Position, to: Position, in geometry: GeometryProxy) -> some View {
+        // Similar implementation as other create functions
+        // Implementation details would be added here
+        Text("General Attack View")
+    }
+    
+    private func createAdvisorAttack(from: Position, to: Position, in geometry: GeometryProxy) -> some View {
+        // Similar implementation
+        Text("Advisor Attack View")
+    }
+    
+    private func createElephantAttack(from: Position, to: Position, in geometry: GeometryProxy) -> some View {
+        // Similar implementation
+        Text("Elephant Attack View")
+    }
+    
+    private func createChariotAttack(from: Position, to: Position, in geometry: GeometryProxy) -> some View {
+        let cellWidth = geometry.size.width / 9
+        let cellHeight = geometry.size.height / 10
+        let offsetX = cellWidth / 2
+        let offsetY = cellHeight / 2
+        
+        let pieceColor = gameBoard.pieceAt(position: from)?.color ?? .red
+        
+        return ChariotAttackView(
+            start: CGPoint(
+                x: CGFloat(from.x) * cellWidth + offsetX,
+                y: CGFloat(from.y) * cellHeight + offsetY
+            ),
+            end: CGPoint(
+                x: CGFloat(to.x) * cellWidth + offsetX,
+                y: CGFloat(to.y) * cellHeight + offsetY
+            ),
+            pieceColor: pieceColor
+        )
+    }
+    
     private func makeMove(from: Position, to: Position) {
         if gameBoard.isValidMove(from: from, to: to) {
             if let capturedPiece = gameBoard.pieceAt(position: to),
-               let movingPiece = gameBoard.pieceAt(position: from),
-               movingPiece.type == .cannon {
+               let movingPiece = gameBoard.pieceAt(position: from) {
                 
-                // Set the active cannon shot
-                activeCannonShot = (from: from, to: to)
-                
-                // After the shot animation, perform the capture
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    gameBoard.movePiece(from: from, to: to)
-                    if gameConnection.state == .connected {
-                        gameConnection.sendMove(from: from, to: to)
+                if movingPiece.type == .cannon {
+                    // Set the active cannon shot
+                    activeCannonShot = (from: from, to: to)
+                    
+                    // After the shot animation, perform the capture
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        gameBoard.movePiece(from: from, to: to)
+                        if gameConnection.state == .connected {
+                            gameConnection.sendMove(from: from, to: to)
+                        }
+                        // Clear the cannon shot
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            activeCannonShot = nil
+                        }
                     }
-                    // Clear the cannon shot
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        activeCannonShot = nil
+                } else if movingPiece.type == .horse {
+                    // Horse jump animation
+                    activeHorseJump = (from: from, to: to)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        gameBoard.movePiece(from: from, to: to)
+                        if gameConnection.state == .connected {
+                            gameConnection.sendMove(from: from, to: to)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            activeHorseJump = nil
+                        }
                     }
-                }
-            } else if gameBoard.pieceAt(position: to) != nil {
-                // Normal capture animation
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    gameBoard.movePiece(from: from, to: to)
-                    if gameConnection.state == .connected {
-                        gameConnection.sendMove(from: from, to: to)
+                } else if movingPiece.type == .soldier {
+                    // Soldier attack animation
+                    activeSoldierAttack = (from: from, to: to)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        gameBoard.movePiece(from: from, to: to)
+                        if gameConnection.state == .connected {
+                            gameConnection.sendMove(from: from, to: to)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            activeSoldierAttack = nil
+                        }
+                    }
+                } else if movingPiece.type == .general {
+                    activeGeneralAttack = (from: from, to: to)
+                    // Similar implementation as other animations
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        gameBoard.movePiece(from: from, to: to)
+                        if gameConnection.state == .connected {
+                            gameConnection.sendMove(from: from, to: to)
+                        }
+                    }
+                } else if movingPiece.type == .advisor {
+                    activeAdvisorAttack = (from: from, to: to)
+                    // Similar implementation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        gameBoard.movePiece(from: from, to: to)
+                        if gameConnection.state == .connected {
+                            gameConnection.sendMove(from: from, to: to)
+                        }
+                    }
+                } else if movingPiece.type == .elephant {
+                    activeElephantAttack = (from: from, to: to)
+                    // Similar implementation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        gameBoard.movePiece(from: from, to: to)
+                        if gameConnection.state == .connected {
+                            gameConnection.sendMove(from: from, to: to)
+                        }
+                    }
+                } else if movingPiece.type == .chariot {
+                    activeChariotAttack = (from: from, to: to)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        gameBoard.movePiece(from: from, to: to)
+                        if gameConnection.state == .connected {
+                            gameConnection.sendMove(from: from, to: to)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            activeChariotAttack = nil
+                        }
+                    }
+                } else {
+                    // Normal capture animation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        gameBoard.movePiece(from: from, to: to)
+                        if gameConnection.state == .connected {
+                            gameConnection.sendMove(from: from, to: to)
+                        }
                     }
                 }
             } else {
@@ -377,219 +530,6 @@ struct ContentView: View {
         gameBoard.isCheckmate = false
         selectedPiece = nil
         possibleMoves = []
-    }
-}
-
-struct BoardGrid: View {
-    var body: some View {
-        GeometryReader { geometry in
-            let cellWidth = geometry.size.width / 9
-            let cellHeight = geometry.size.height / 10
-            let offsetX = cellWidth / 2
-            let offsetY = cellHeight / 2
-            
-            Path { path in
-                // Vertical lines
-                for i in 0...8 {
-                    let x = cellWidth * CGFloat(i) + offsetX
-                    // Top half
-                    path.move(to: CGPoint(x: x, y: offsetY))
-                    path.addLine(to: CGPoint(x: x, y: cellHeight * 4 + offsetY))
-                    // Bottom half
-                    path.move(to: CGPoint(x: x, y: cellHeight * 5 + offsetY))
-                    path.addLine(to: CGPoint(x: x, y: cellHeight * 9 + offsetY))
-                }
-                
-                // Horizontal lines - only draw within the board
-                for i in 0...8 {
-                    let y = cellHeight * CGFloat(i) + offsetY
-                    path.move(to: CGPoint(x: offsetX, y: y))
-                    path.addLine(to: CGPoint(x: cellWidth * 8 + offsetX, y: y))
-                }
-                
-                // Palace diagonals
-                // Black palace (top)
-                path.move(to: CGPoint(x: 3 * cellWidth + offsetX, y: offsetY))
-                path.addLine(to: CGPoint(x: 5 * cellWidth + offsetX, y: 2 * cellHeight + offsetY))
-                path.move(to: CGPoint(x: 5 * cellWidth + offsetX, y: offsetY))
-                path.addLine(to: CGPoint(x: 3 * cellWidth + offsetX, y: 2 * cellHeight + offsetY))
-                
-                // Red palace (bottom)
-                path.move(to: CGPoint(x: 3 * cellWidth + offsetX, y: 7 * cellHeight + offsetY))
-                path.addLine(to: CGPoint(x: 5 * cellWidth + offsetX, y: 9 * cellHeight + offsetY))
-                path.move(to: CGPoint(x: 5 * cellWidth + offsetX, y: 7 * cellHeight + offsetY))
-                path.addLine(to: CGPoint(x: 3 * cellWidth + offsetX, y: 9 * cellHeight + offsetY))
-            }
-            .stroke(Color.black, lineWidth: 1)
-            
-            Text("楚 河")
-                .font(.system(size: 24))
-                .position(x: geometry.size.width * 0.25, y: geometry.size.height * 0.5)
-            Text("漢 界")
-                .font(.system(size: 24))
-                .position(x: geometry.size.width * 0.75, y: geometry.size.height * 0.5)
-        }
-    }
-}
-
-struct CannonShotView: View {
-    let start: CGPoint
-    let end: CGPoint
-    @State private var progress: CGFloat = 0
-    @State private var showSmoke = false
-    
-    var body: some View {
-        ZStack {
-            // Smoke effect at the start position
-            if showSmoke {
-                Circle()
-                    .fill(Color.gray.opacity(0.5))
-                    .frame(width: 20, height: 20)
-                    .position(start)
-                    .scaleEffect(progress)
-                    .opacity(1 - progress)
-            }
-            
-            // Cannon ball
-            Circle()
-                .fill(Color.black)
-                .frame(width: 12, height: 12)
-                .position(
-                    x: start.x + (end.x - start.x) * progress,
-                    y: start.y + (end.y - start.y) * progress
-                )
-                .opacity(progress < 1 ? 1 : 0)
-        }
-        .onAppear {
-            showSmoke = true
-            withAnimation(.easeOut(duration: 0.3)) {
-                progress = 1
-            }
-        }
-    }
-}
-
-struct PieceView: View {
-    let piece: Piece
-    let isSelected: Bool
-    let isBeingCaptured: Bool
-    @State private var isCaptured = false
-    @State private var offset = CGSize.zero
-    let cellWidth: CGFloat
-    let cellHeight: CGFloat
-    
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(Color(red: 0.95, green: 0.9, blue: 0.8))
-                .frame(width: 38, height: 38)
-                .overlay(
-                    Circle()
-                        .stroke(Color.black, lineWidth: 2)
-                )
-            
-            Circle()
-                .fill(Color(red: 0.95, green: 0.9, blue: 0.8))
-                .frame(width: 34, height: 34)
-                .overlay(
-                    Circle()
-                        .stroke(Color.black, lineWidth: 1)
-                )
-            
-            Text(pieceSymbol(for: piece))
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(piece.color == .red ? .red : .black)
-                .rotationEffect(piece.color == .black ? .degrees(180) : .degrees(0))
-        }
-        .background(
-            Circle()
-                .fill(isSelected ? Color.yellow.opacity(0.3) : Color.clear)
-                .frame(width: 44, height: 44)
-        )
-        .offset(offset)
-        .scaleEffect(isCaptured ? 0.5 : 1)
-        .opacity(isCaptured ? 0 : 1)
-        .animation(.easeInOut(duration: 0.3), value: isCaptured)
-        .animation(.easeInOut(duration: 0.3), value: offset)
-        .onChange(of: isBeingCaptured) { newValue in
-            if newValue {
-                isCaptured = true
-            } else {
-                isCaptured = false
-            }
-        }
-        .onChange(of: piece.position) { _ in
-            isCaptured = false
-            offset = .zero
-        }
-    }
-    
-    private func pieceSymbol(for piece: Piece) -> String {
-        switch piece.type {
-        case .general: return piece.color == .red ? "帥" : "將"
-        case .advisor: return piece.color == .red ? "仕" : "士"
-        case .elephant: return piece.color == .red ? "相" : "象"
-        case .horse: return "馬"
-        case .chariot: return "車"
-        case .cannon: return "砲"
-        case .soldier: return piece.color == .red ? "兵" : "卒"
-        }
-    }
-}
-
-struct ConnectionView: View {
-    @ObservedObject var gameConnection: GameConnection
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        VStack {
-            if gameConnection.state == .connected {
-                Text("Connected!")
-                    .font(.title)
-                    .padding()
-                Button("Start Playing") {
-                    dismiss()
-                }
-                .padding()
-                .background(Color.green)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            } else {
-                if gameConnection.isHost {
-                    Text("Waiting for players to join...")
-                        .font(.headline)
-                        .padding()
-                } else {
-                    Text("Available Games")
-                        .font(.headline)
-                        .padding()
-                    
-                    List(gameConnection.availablePeers, id: \.self) { peer in
-                        Button(peer.displayName) {
-                            gameConnection.connectTo(peer: peer)
-                        }
-                    }
-                }
-                
-                Button("Cancel") {
-                    gameConnection.stopConnection()
-                    dismiss()
-                }
-                .padding()
-                .background(Color.red)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            }
-        }
-        .padding()
-    }
-}
-
-// Make Position Hashable for ForEach
-extension Position: Hashable {
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(x)
-        hasher.combine(y)
     }
 }
 

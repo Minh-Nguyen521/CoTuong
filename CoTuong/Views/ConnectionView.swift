@@ -27,21 +27,38 @@ struct ConnectionView: View {
                         .font(.headline)
                         .padding()
                     
-                    List(gameConnection.availablePeers, id: \.self) { peer in
-                        Button(peer.displayName) {
-                            gameConnection.connectTo(peer: peer)
+                    if gameConnection.availablePeers.isEmpty {
+                        Text("No games found")
+                            .foregroundColor(.gray)
+                            .padding()
+                    } else {
+                        List(gameConnection.availablePeers, id: \.self) { peer in
+                            Button(peer.displayName) {
+                                gameConnection.connectTo(peer: peer)
+                            }
                         }
                     }
                 }
                 
-                Button("Cancel") {
-                    gameConnection.stopConnection()
-                    dismiss()
+                HStack {
+                    Button("Return") {
+                        gameConnection.stopConnection()
+                        dismiss()
+                    }
+                    .padding()
+                    .background(Color.orange)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    
+                    Button("Cancel") {
+                        gameConnection.stopConnection()
+                        dismiss()
+                    }
+                    .padding()
+                    .background(Color.red)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
                 }
-                .padding()
-                .background(Color.red)
-                .foregroundColor(.white)
-                .cornerRadius(8)
             }
         }
         .padding()
