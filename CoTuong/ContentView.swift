@@ -382,19 +382,66 @@ struct ContentView: View {
     }
     
     private func createGeneralAttack(from: Position, to: Position, in geometry: GeometryProxy) -> some View {
-        // Similar implementation as other create functions
-        // Implementation details would be added here
-        Text("General Attack View")
+        let cellWidth = geometry.size.width / 9
+        let cellHeight = geometry.size.height / 10
+        let offsetX = cellWidth / 2
+        let offsetY = cellHeight / 2
+        
+        let pieceColor = gameBoard.pieceAt(position: from)?.color ?? .red
+        
+        return GeneralAttackView(
+            start: CGPoint(
+                x: CGFloat(from.x) * cellWidth + offsetX,
+                y: CGFloat(from.y) * cellHeight + offsetY
+            ),
+            end: CGPoint(
+                x: CGFloat(to.x) * cellWidth + offsetX,
+                y: CGFloat(to.y) * cellHeight + offsetY
+            ),
+            pieceColor: pieceColor
+        )
     }
     
     private func createAdvisorAttack(from: Position, to: Position, in geometry: GeometryProxy) -> some View {
-        // Similar implementation
-        Text("Advisor Attack View")
+        let cellWidth = geometry.size.width / 9
+        let cellHeight = geometry.size.height / 10
+        let offsetX = cellWidth / 2
+        let offsetY = cellHeight / 2
+        
+        let pieceColor = gameBoard.pieceAt(position: from)?.color ?? .red
+        
+        return AdvisorAttackView(
+            start: CGPoint(
+                x: CGFloat(from.x) * cellWidth + offsetX,
+                y: CGFloat(from.y) * cellHeight + offsetY
+            ),
+            end: CGPoint(
+                x: CGFloat(to.x) * cellWidth + offsetX,
+                y: CGFloat(to.y) * cellHeight + offsetY
+            ),
+            pieceColor: pieceColor
+        )
     }
     
     private func createElephantAttack(from: Position, to: Position, in geometry: GeometryProxy) -> some View {
-        // Similar implementation
-        Text("Elephant Attack View")
+        let cellWidth = geometry.size.width / 9
+        let cellHeight = geometry.size.height / 10
+        let offsetX = cellWidth / 2
+        let offsetY = cellHeight / 2
+        
+        let pieceColor = gameBoard.pieceAt(position: from)?.color ?? .red
+        
+        return ElephantAttackView(
+            start: CGPoint(
+                x: CGFloat(from.x) * cellWidth + offsetX,
+                y: CGFloat(from.y) * cellHeight + offsetY
+            ),
+            end: CGPoint(
+                x: CGFloat(to.x) * cellWidth + offsetX,
+                y: CGFloat(to.y) * cellHeight + offsetY
+            ),
+            pieceColor: pieceColor
+        )
     }
     
     private func createChariotAttack(from: Position, to: Position, in geometry: GeometryProxy) -> some View {
@@ -464,29 +511,35 @@ struct ContentView: View {
                     }
                 } else if movingPiece.type == .general {
                     activeGeneralAttack = (from: from, to: to)
-                    // Similar implementation as other animations
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         gameBoard.movePiece(from: from, to: to)
                         if gameConnection.state == .connected {
                             gameConnection.sendMove(from: from, to: to)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            activeGeneralAttack = nil
                         }
                     }
                 } else if movingPiece.type == .advisor {
                     activeAdvisorAttack = (from: from, to: to)
-                    // Similar implementation
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         gameBoard.movePiece(from: from, to: to)
                         if gameConnection.state == .connected {
                             gameConnection.sendMove(from: from, to: to)
                         }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            activeAdvisorAttack = nil
+                        }
                     }
                 } else if movingPiece.type == .elephant {
                     activeElephantAttack = (from: from, to: to)
-                    // Similar implementation
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { // Slightly longer for elephant's jump
                         gameBoard.movePiece(from: from, to: to)
                         if gameConnection.state == .connected {
                             gameConnection.sendMove(from: from, to: to)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            activeElephantAttack = nil
                         }
                     }
                 } else if movingPiece.type == .chariot {
