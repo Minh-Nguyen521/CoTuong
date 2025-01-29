@@ -66,23 +66,51 @@ class GameBoard: ObservableObject {
         // Check if the move is within board bounds
         if !isWithinBounds(position: to) { return false }
         
-        // Validate move based on piece type
-        switch piece.type {
+        // First check basic move validity based on piece type
+        let isValidPieceMove = switch piece.type {
         case .general:
-            return isValidGeneralMove(from: from, to: to, color: piece.color)
+            isValidGeneralMove(from: from, to: to, color: piece.color)
         case .advisor:
-            return isValidAdvisorMove(from: from, to: to, color: piece.color)
+            isValidAdvisorMove(from: from, to: to, color: piece.color)
         case .elephant:
-            return isValidElephantMove(from: from, to: to, color: piece.color)
+            isValidElephantMove(from: from, to: to, color: piece.color)
         case .horse:
-            return isValidHorseMove(from: from, to: to)
+            isValidHorseMove(from: from, to: to)
         case .chariot:
-            return isValidChariotMove(from: from, to: to)
+            isValidChariotMove(from: from, to: to)
         case .cannon:
-            return isValidCannonMove(from: from, to: to)
+            isValidCannonMove(from: from, to: to)
         case .soldier:
-            return isValidSoldierMove(from: from, to: to, color: piece.color)
+            isValidSoldierMove(from: from, to: to, color: piece.color)
         }
+        
+        if !isValidPieceMove { return false }
+        
+        // Now check if this move would put or leave the player in check
+        // Make a temporary move
+        let originalPosition = piece.position
+        let capturedPiece = pieceAt(position: to)
+        
+        // Make the move temporarily
+        if let capturedIndex = pieces.firstIndex(where: { $0.position == to }) {
+            pieces.remove(at: capturedIndex)
+        }
+        if let pieceIndex = pieces.firstIndex(where: { $0.id == piece.id }) {
+            pieces[pieceIndex].position = to
+        }
+        
+        // Check if this puts us in check
+        let putsUsInCheck = isInCheck(color: currentPlayer)
+        
+        // Undo the move
+        if let pieceIndex = pieces.firstIndex(where: { $0.id == piece.id }) {
+            pieces[pieceIndex].position = originalPosition
+        }
+        if let capturedPiece = capturedPiece {
+            pieces.append(capturedPiece)
+        }
+        
+        return !putsUsInCheck
     }
     
     private func isWithinBounds(position: Position) -> Bool {
